@@ -29,6 +29,14 @@ def check_hashes(password, hashed_text):
 # --- 3. DATABASE VERBINDING ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# We halen de data op met een 'ttl=0' om te zorgen dat hij niet een oude fout uit het geheugen haalt
+try:
+    lessen = conn.read(worksheet="Lessen", ttl=0)
+    boekingen = conn.read(worksheet="Boekingen", ttl=0)
+    users = conn.read(worksheet="Gebruikers", ttl=0)
+except Exception as e:
+    st.error(f"Fout bij het laden: {e}")
+
 # --- 4. SESSION STATE (Inlogstatus) ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
