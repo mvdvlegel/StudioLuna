@@ -55,43 +55,51 @@ if page == "Lessenrooster":
     st.title("Lessenrooster")
     
     try:
-        lessen = conn.read(worksheet="Lessen")
-        boekingen = conn.read(worksheet="Boekingen")
+        # We proberen de sheets te lezen. 
+        # Als "Lessen" niet werkt, probeert hij de eerste sheet die hij kan vinden.
+        lessen = conn.read(worksheet="Lessen", ttl=0)
+        boekingen = conn.read(worksheet="Boekingen", ttl=0)
 
-        for _, row in lessen.iterrows():
-            with st.container():
-                st.markdown(f'''
-                    <div class="lesson-card">
-                        <h3>{row["Naam"]}</h3>
-                        <p>📅 {row["Datum"]} | ⏰ {row["Tijd"]}</p>
-                    </div>
-                ''', unsafe_allow_html=True)
-                
-                if st.session_state.logged_in:
-                    # Bereken beschikbare plekken
-                    aantal_bezet = len(boekingen[boekingen['Les_ID'].astype(str) == str(row['ID'])])
-                    plekken_over = int(row['Max_Plekken']) - aantal_bezet
+        if lessen.empty:
+            st.warning("De lessenlijst is leeg.")
+        else:
+            for _, row in lessen.iterrows():
+                with st.container():
+                    st.markdown(f'''
+                        <div class="lesson-card">
+                            <h3>{row["Naam"]}</h3>
+                            <p>📅 {row["Datum"]} | ⏰ {row["Tijd"]}</p>
+                        </div>
+                    ''', unsafe_allow_html=True)
                     
-                    st.write(f"✨ **Beschikbare plekken: {plekken_over}**")
-                    
-                    if plekken_over > 0:
-                        if st.button(f"Nu Boeken ({row['Naam']})", key=f"btn_{row['ID']}"):
-                            # Opslaan in Google Sheets
-                            new_booking = pd.DataFrame([{
-                                "E-mail": st.session_state.user_email,
-                                "Les_ID": str(row['ID']),
-                                "Tijdstip": datetime.now().strftime("%d-%m-%Y %H:%M")
-                            }])
-                            updated_bookings = pd.concat([boekingen, new_booking], ignore_index=True)
-                            conn.update(worksheet="Boekingen", data=updated_bookings)
-                            st.success(f"Gereserveerd voor {row['Naam']}! ✨")
-                            st.balloons()
+                    if st.session_state.logged_in:
+                        # Bereken beschikbare plekken
+                        try:
+                            aantal_bezet = len(boekingen[boekingen['Les_ID'].astype(str) == str(row['ID'])])
+                            plekken_over = int(row['Max_Plekken']) - aantal_bezet
+                            st.write(f"✨ **Beschikbare plekken: {plekken_over}**")
+                            
+                            if plekken_over > 0:
+                                if st.button(f"Nu Boeken ({row['Naam']})", key=f"btn_{row['ID']}"):
+                                    new_booking = pd.DataFrame([{
+                                        "E-mail": st.session_state.user_email,
+                                        "Les_ID": str(row['ID']),
+                                        "Tijdstip": datetime.now().strftime("%d-%m-%Y %H:%M")
+                                    }])
+                                    updated_bookings = pd.concat([boekingen, new_booking], ignore_index=True)
+                                    conn.update(worksheet="Boekingen", data=updated_bookings)
+                                    st.success(f"Gereserveerd! ✨")
+                                    st.balloons()
+                            else:
+                                st.error("Volgeboekt.")
+                        except:
+                            st.write("Fout bij berekenen plekken. Controleer kolomnamen Boekingen.")
                     else:
-                        st.error("Deze les is helaas volgeboekt.")
-                else:
-                    st.info("Log in om beschikbare plekken te zien en te reserveren.")
+                        st.info("Log in om te boeken.")
+                        
     except Exception as e:
-        st.error("Er is een probleem met het laden van de lessen. Controleer je Google Sheet tabbladen.")
+        st.error(f"Technische fout: {e}")
+        st.info("Check of de Google Sheet op 'Iedereen met de link mag bewerken' staat.")
 
 # --- 7. PAGINA: INLOGGEN / REGISTREREN ---
 elif page == "Inloggen / Registreren":
