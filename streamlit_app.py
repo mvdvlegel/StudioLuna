@@ -48,8 +48,12 @@ if page == "Lessenrooster":
         lessen = get_data(LESSEN_URL)
         boekingen = get_data(BOEKINGEN_URL)
         
+        # We hebben de verbinding nodig om te schrijven
+        conn = st.connection("gsheets", type=GSheetsConnection)
+
         for _, row in lessen.iterrows():
             with st.container():
+                # Weergeven van de leskaart
                 st.markdown(f'''
                     <div class="lesson-card">
                         <h3>{row["Naam"]}</h3>
@@ -58,21 +62,42 @@ if page == "Lessenrooster":
                 ''', unsafe_allow_html=True)
                 
                 if st.session_state.logged_in:
-                    # Filter aantal boekingen voor deze les
+                    # Bereken beschikbare plekken
                     bezet = len(boekingen[boekingen['Les_ID'].astype(str) == str(row['ID'])])
                     over = int(row['Max_Plekken']) - bezet
                     st.write(f"✨ **Beschikbare plekken: {over}**")
                     
                     if over > 0:
-                        if st.button(f"Boek {row['Naam']}", key=f"btn_{row['ID']}"):
-                            st.info("Boeken wordt nu verwerkt via Google Sheets...")
-                            # Voor schrijven naar de sheet heb je de GSheetsConnection nodig
-                            # Maar laten we eerst zorgen dat dit leesgedeelte werkt!
+                        # Check of de gebruiker deze les al geboekt heeft
+                        al_geboekt = not boekingen[(boekingen['E-mail'] == st.session_state.user_email) & 
+                                                  (boekingen['Les_ID'].astype(str) == str(row['ID']))].empty
+                        
+                        if al_geboekt:
+                            st.warning("Je hebt deze les al geboekt. Tot dan! ❤️")
+                        else:
+                            if st.button(f"Boek plekje voor {row['Naam']}", key=f"btn_{row['ID']}"):
+                                # Maak nieuwe boeking aan
+                                new_booking = pd.DataFrame([{
+                                    "E-mail": st.session_state.user_email,
+                                    "Les_ID": str(row['ID']),
+                                    "Tijdstip": datetime.now().strftime("%d-%m-%Y %H:%M")
+                                }])
+                                
+                                # Voeg toe aan bestaande lijst en upload
+                                updated_boekingen = pd.concat([boekingen, new_booking], ignore_index=True)
+                                conn.update(worksheet="Boekingen", data=updated_boekingen)
+                                
+                                st.success(f"Gelukt! Je bent aangemeld voor {row['Naam']}. Tot snel!")
+                                st.balloons()
+                                # Cache legen zodat de nieuwe plek direct zichtbaar is
+                                st.cache_data.clear() 
+                    else:
+                        st.error("Helaas, deze les is volgeboekt.")
                 else:
-                    st.info("Log in om plekken te zien en te boeken.")
+                    st.info("Log in om te zien hoeveel plekjes er nog zijn en om te boeken.")
     except Exception as e:
-        st.error(f"Fout bij laden: {e}")
-
+        st.error(f"Fout bij laden rooster: {e}")
+        
 # --- 7. PAGINA: INLOGGEN / REGISTREREN ---
 elif page == "Inloggen / Registreren":
     if not st.session_state.logged_in:
