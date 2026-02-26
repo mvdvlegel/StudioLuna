@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import hashlib
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection  
 
 # --- 1. CONFIGURATIE & STYLING ---
 st.set_page_config(page_title="Studio Luna - Mama Circle", page_icon="🌙")
