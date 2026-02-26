@@ -19,13 +19,14 @@ st.markdown(f"""
         border-radius: 25px !important;
         border: none !important;
         padding: 10px 30px !important;
+        font-weight: 500;
     }}
     .lesson-card {{
         background-color: white;
         border-left: 6px solid #c78d76;
-        padding: 20px;
+        padding: 25px;
         border-radius: 15px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         box-shadow: 2px 4px 12px rgba(58, 79, 65, 0.05);
     }}
     </style>
@@ -41,7 +42,10 @@ if 'logged_in' not in st.session_state:
 
 @st.cache_data(ttl=60)
 def load_data(url):
-    return pd.read_csv(url)
+    df = pd.read_csv(url)
+    # Zorg dat de datum kolom herkend wordt als echte datum
+    df['Datum_DT'] = pd.to_datetime(df['Datum'], dayfirst=True)
+    return df
 
 # --- 3. NAVIGATIE LOGICA ---
 if st.session_state.logged_in:
@@ -63,21 +67,44 @@ if menu == "🌙 Lessenrooster":
     st.title("Lessenrooster 🌙")
     try:
         lessen = load_data(LESSEN_URL)
+        
+        # Vertaling voor dagnamen
+        dagen_nl = {
+            'Monday': 'Maandag', 'Tuesday': 'Dinsdag', 'Wednesday': 'Woensdag',
+            'Thursday': 'Donderdag', 'Friday': 'Vrijdag', 'Saturday': 'Zaterdag', 'Sunday': 'Zondag'
+        }
+
         for _, row in lessen.iterrows():
+            # Haal de dagnaam op uit de datum
+            engelse_dag = row['Datum_DT'].strftime('%A')
+            dag_naam = dagen_nl.get(engelse_dag, engelse_dag)
+            nette_datum = f"{dag_naam} {row['Datum']}"
+            
+            # Formatteer de tijd (vervangt . door : en zorgt voor nette weergave)
+            tijd_str = str(row['Tijd']).replace('.', ':')
+            if ':' in tijd_str:
+                uren, minuten = tijd_str.split(':')
+                minuten = minuten.ljust(2, '0') # Maakt van :5 weer :50
+                tijd_weergave = f"{uren}:{minuten}"
+            else:
+                tijd_weergave = f"{tijd_str}:00"
+
             st.markdown(f"""
             <div class='lesson-card'>
-                <h3>{row['Naam']}</h3>
-                <p>📅 {row['Datum']} | ⏰ {row['Tijd']}</p>
+                <h3 style='margin-bottom:10px;'>{row['Naam']}</h3>
+                <p style='margin:0;'>📅 <b>{nette_datum}</b></p>
+                <p style='margin:0;'>⏰ <b>{tijd_weergave} uur</b></p>
             </div>
             """, unsafe_allow_html=True)
+            
             if st.session_state.logged_in:
                 if st.button(f"Reserveer {row['Naam']}", key=f"book_{row['ID']}"):
-                    st.success("Gereserveerd! ✨")
+                    st.success("Gereserveerd! ✨ Zie je in de studio.")
                     st.balloons()
             else:
                 st.caption("Log in om een plekje te reserveren.")
-    except:
-        st.error("Het rooster kon niet geladen worden.")
+    except Exception as e:
+        st.error(f"Rooster kon niet geladen worden: {e}")
 
 # --- 5. PAGINA: TARIEVEN ---
 elif menu == "🏷️ Tarieven":
@@ -86,9 +113,9 @@ elif menu == "🏷️ Tarieven":
     ### Yoga & Community
     * **Proefles:** €10,-
     * **Losse Credit:** €22,50
-    * **The First Connection (3 Credits):** €60,- *(Inclusief 1 maand app cadeau)*
-    * **The Growing Tribe (6 Credits):** €115,- *(Inclusief 2 maanden app cadeau)*
-    * **The Trimester Journey (12 Credits):** €210,- *(Inclusief 4 maanden app cadeau)*
+    * **The First Connection (3 Credits):** €60,- *(Incl. 1 maand app)*
+    * **The Growing Tribe (6 Credits):** €115,- *(Incl. 2 maanden app)*
+    * **The Trimester Journey (12 Credits):** €210,- *(Incl. 4 maanden app)*
 
     ### Persoonlijke Begeleiding
     * **1-op-1 pre- of postnatale yoga:** €80,- *(Bij jou thuis)*
@@ -105,6 +132,7 @@ elif menu == "🏷️ Tarieven":
 elif menu in ["👤 Inloggen", "👤 Mijn Account"]:
     if not st.session_state.logged_in:
         st.title("Mijn Account")
+        st.markdown("### Join de mama tribe!")
         email = st.text_input("E-mailadres")
         passw = st.text_input("Wachtwoord", type="password")
         if st.button("Inloggen"):
@@ -113,20 +141,21 @@ elif menu in ["👤 Inloggen", "👤 Mijn Account"]:
             st.rerun()
     else:
         st.title("Mijn Account")
-        st.write(f"Ingelogd als: **{st.session_state.user_email}**")
+        st.write(f"Welkom terug, **{st.session_state.user_email}**")
+        st.markdown("---")
         if st.button("Uitloggen"):
             st.session_state.logged_in = False
             st.rerun()
 
 # --- 7. BEVEILIGDE PAGINA'S ---
 elif menu == "✨ Mijn Tribe":
-    st.title("Mijn Tribe Feed")
-    st.info("Updates voor de Circle.")
+    st.title("Mijn Tribe Feed 🌿")
+    st.info("Binnenkort vind je hier de wekelijkse updates en verbindende verhalen.")
 
 elif menu == "🌿 Bibliotheek":
-    st.title("Mama Reset Bibliotheek")
-    st.write("Video's en oefeningen.")
+    st.title("Mama Reset Bibliotheek 🧘")
+    st.write("Exclusieve content voor leden. Ademhalingsoefeningen en video's.")
 
 elif menu == "🍲 Village Board":
-    st.title("Village Board")
-    st.write("De Mealtrain.")
+    st.title("Village Board 🍲")
+    st.write("De Mealtrain voor mama's in de Circle.")
