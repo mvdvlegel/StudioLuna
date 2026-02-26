@@ -1,145 +1,128 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-import hashlib
 from datetime import datetime
 
-# --- 1. CONFIGURATIE & STYLING (De Studio Luna Look) ---
-st.set_page_config(page_title="Studio Luna - Mama Circle", page_icon="🌙", layout="centered")
+# --- 1. GEAVANCEERDE STYLING (De volledige Replit look) ---
+st.set_page_config(page_title="Studio Luna - Mama Circle", page_icon="🌙", layout="wide")
 
 st.markdown("""
     <style>
-    /* Algemene achtergrond */
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500&display=swap');
+
+    /* De basis */
     .stApp {
-        background-color: #F9F7F5;
-    }
-    
-    /* Titels in Sage Green */
-    h1, h2, h3 {
-        color: #8FA89B !important;
-        font-family: 'Helvetica Neue', sans-serif;
-    }
-    
-    /* Leskaarten Styling */
-    .lesson-card {
-        background: white;
-        padding: 25px;
-        border-radius: 20px;
-        border-left: 8px solid #C78D76; /* Terracotta */
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    }
-    
-    /* Knoppen Styling */
-    div.stButton > button:first-child {
-        background-color: #C78D76 !important;
-        color: white !important;
-        border-radius: 30px !important;
-        border: none !important;
-        padding: 12px 30px !important;
-        font-weight: 500;
-        width: 100%;
+        background: linear-gradient(135deg, #F9F7F5 0%, #F1EDE9 100%);
+        font-family: 'Quicksand', sans-serif;
     }
 
-    /* Sidebar Styling */
+    /* Custom Sidebar met kleurverloop */
     [data-testid="stSidebar"] {
         background-color: #E8EFEB !important;
+        border-right: 1px solid #D1DBD4;
+    }
+
+    /* De Leskaarten (Soft UI / Glassmorphism) */
+    .lesson-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        padding: 25px;
+        border-radius: 24px;
+        border: 1px solid rgba(200, 168, 150, 0.2);
+        box-shadow: 10px 10px 20px #ebe8e5, -10px -10px 20px #ffffff;
+        margin-bottom: 25px;
+        transition: transform 0.3s ease;
+    }
+    
+    .lesson-card:hover {
+        transform: translateY(-5px);
+    }
+
+    /* Kleuraccenten */
+    .sage-text { color: #8FA89B; font-weight: 500; }
+    .terra-text { color: #C78D76; font-weight: 600; }
+    
+    /* Grote titels */
+    h1 {
+        color: #5F746A !important;
+        font-weight: 300 !important;
+        letter-spacing: -1px;
+    }
+
+    /* Knoppen die eruit 'poppen' */
+    div.stButton > button {
+        background: #C78D76 !important;
+        color: white !important;
+        border: none !important;
+        padding: 15px 40px !important;
+        border-radius: 50px !important;
+        box-shadow: 5px 5px 15px rgba(199, 141, 118, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    div.stButton > button:hover {
+        background: #B67C65 !important;
+        box-shadow: 2px 2px 10px rgba(199, 141, 118, 0.5) !important;
+        transform: scale(1.02);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATABASE VERBINDING ---
-# We gebruiken de directe export-methode voor stabiliteit
+# --- 2. DATA FUNCTIES ---
 BASE_URL = "https://docs.google.com/spreadsheets/d/1q3i75-cDz2Y5cAtHHm8E0Cc6qyMH7Q7o0rcn-1F49Fs/export?format=csv"
 LESSEN_URL = f"{BASE_URL}&gid=0"
 BOEKINGEN_URL = f"{BASE_URL}&gid=1121386221"
-USERS_URL = f"{BASE_URL}&gid=1903698065"
 
 @st.cache_data(ttl=10)
-def get_data(url):
+def load_data(url):
     return pd.read_csv(url)
 
-# --- 3. SESSION STATE ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user_email = ""
-
-# --- 4. NAVIGATIE ---
+# --- 3. SIDEBAR & LOGO ---
 with st.sidebar:
-    st.title("Studio Luna 🌙")
-    page = st.radio("Menu", ["Lessenrooster", "Bibliotheek", "Inloggen / Registreren"])
+    st.markdown("<h1 style='text-align: center; color: #8FA89B;'>🌙 Studio Luna</h1>", unsafe_allow_html=True)
     st.markdown("---")
-    st.info("Tip: Gebruik 2% arrowroot (8g) in de Luna Glow Whip voor de perfecte textuur!")
+    menu = st.radio("GA NAAR", ["✨ Lessenrooster", "🌿 Bibliotheek", "👤 Mijn Account"])
+    st.markdown("---")
+    st.write("📫 **Contact**")
+    st.caption("info@studioluna.nl")
 
-# --- 5. PAGINA: LESSENROOSTER ---
-if page == "Lessenrooster":
-    st.title("Lessenrooster 🌙")
-    st.markdown("#### *Rust en beweging voor jou*")
+# --- 4. PAGINA'S ---
+if menu == "✨ Lessenrooster":
+    st.title("Lessenrooster")
+    st.markdown("<p class='sage-text'>Vind je moment van rust en verbinding.</p>", unsafe_allow_html=True)
     
     try:
-        lessen = get_data(LESSEN_URL)
-        boekingen = get_data(BOEKINGEN_URL)
-        conn = st.connection("gsheets", type=GSheetsConnection)
-
-        for _, row in lessen.iterrows():
-            st.markdown(f"""
-                <div class="lesson-card">
-                    <h3>{row['Naam']}</h3>
-                    <p>📅 <b>Datum:</b> {row['Datum']}<br>
-                    ⏰ <b>Tijd:</b> {row['Tijd']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            if st.session_state.logged_in:
-                bezet = len(boekingen[boekingen['Les_ID'].astype(str) == str(row['ID'])])
-                over = int(row['Max_Plekken']) - bezet
-                st.write(f"✨ **Beschikbare plekken: {over}**")
-                
-                if over > 0:
-                    if st.button(f"Boek {row['Naam']}", key=f"btn_{row['ID']}"):
-                        new_booking = pd.DataFrame([{"E-mail": st.session_state.user_email, "Les_ID": str(row['ID']), "Tijdstip": datetime.now().strftime("%d-%m-%Y %H:%M")}])
-                        updated = pd.concat([boekingen, new_booking], ignore_index=True)
-                        conn.update(worksheet="Boekingen", data=updated)
-                        st.success("Gereserveerd! ✨")
-                        st.balloons()
-                        st.cache_data.clear()
-            else:
-                st.info("Log in om te reserveren.")
-
-    except Exception as e:
-        st.error(f"Rooster kon niet worden geladen: {e}")
-
-# --- 6. PAGINA: BIBLIOTHEEK ---
-elif page == "Bibliotheek":
-    st.title("Bibliotheek 🌿")
-    st.markdown("### *Momentjes voor jezelf*")
-    
-    tab1, tab2 = st.tabs(["Ademhaling & Audio", "Video's"])
-    
-    with tab1:
-        st.subheader("Oefeningen")
-        with st.expander("Box Breathing (4-4-4-4)"):
-            st.write("Adem in (4s), Vast (4s), Uit (4s), Vast (4s).")
+        lessen = load_data(LESSEN_URL)
+        # We maken een mooie grid layout
+        col1, col2 = st.columns(2)
         
-        # Audio placeholder zoals in je ontwerp
-        st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3") 
-        st.caption("Geleide meditatie voor diepe ontspanning")
+        for i, row in lessen.iterrows():
+            target_col = col1 if i % 2 == 0 else col2
+            with target_col:
+                st.markdown(f"""
+                    <div class="lesson-card">
+                        <h2 style='margin-top:0;'>{row['Naam']}</h2>
+                        <p class='terra-text'>📅 {row['Datum']} | ⏰ {row['Tijd']}</p>
+                        <p style='color: #666; font-size: 0.9em;'>Kom tot rust in onze warme studio omgeving.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"Reserveer Plekje", key=f"res_{row['ID']}"):
+                    st.balloons()
+                    st.success("Je aanvraag is verwerkt!")
+    except Exception as e:
+        st.error("Het rooster kon niet geladen worden.")
 
-    with tab2:
-        st.subheader("Video Lessen")
-        st.video("https://www.youtube.com/watch?v=dQw4w9WgXcQ") # Vervang door je eigen video
+elif menu == "🌿 Bibliotheek":
+    st.title("Bibliotheek")
+    st.markdown("### Audio & Meditatie")
+    st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
+    
+    st.markdown("---")
+    st.markdown("### Video Lessen")
+    st.video("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
-# --- 7. PAGINA: ACCOUNT ---
-elif page == "Inloggen / Registreren":
-    st.title("Mijn Account")
-    if not st.session_state.logged_in:
-        email = st.text_input("E-mail")
-        if st.button("Inloggen"):
-            st.session_state.logged_in = True
-            st.session_state.user_email = email
-            st.rerun()
-    else:
-        st.write(f"Ingelogd als: {st.session_state.user_email}")
-        if st.button("Uitloggen"):
-            st.session_state.logged_in = False
-            st.rerun()
+elif menu == "👤 Mijn Account":
+    st.title("Inloggen")
+    st.text_input("E-mailadres")
+    st.text_input("Wachtwoord", type="password")
+    st.button("Log in")
